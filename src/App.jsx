@@ -1,7 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import AppShell from './components/layout/AppShell.jsx'
 import Dashboard    from './pages/Dashboard/index.jsx'
-import Properties   from './pages/Properties/index.jsx'
+import PropertyList from './pages/Properties/PropertyList.jsx'
+import PropertyForm from './pages/Properties/PropertyForm.jsx'
 import Tenants      from './pages/Tenants/index.jsx'
 import Leases       from './pages/Leases/index.jsx'
 import Financials   from './pages/Financials/index.jsx'
@@ -15,17 +16,19 @@ export default function App() {
   return (
     <AppShell>
       <Routes>
-        <Route path="/"            element={<Dashboard />} />
-        <Route path="/properties"  element={<Properties />} />
-        <Route path="/tenants"     element={<Tenants />} />
-        <Route path="/leases"      element={<Leases />} />
-        <Route path="/financials"  element={<Financials />} />
-        <Route path="/maintenance" element={<Maintenance />} />
-        <Route path="/analytics"   element={<Analytics />} />
-        <Route path="/entities"    element={<Entities />} />
-        <Route path="/alerts"      element={<Alerts />} />
-        <Route path="/settings"    element={<Settings />} />
-        <Route path="*"            element={<Navigate to="/" replace />} />
+        <Route path="/"                  element={<Dashboard />} />
+        <Route path="/properties"        element={<PropertyList />} />
+        <Route path="/properties/new"    element={<PropertyForm />} />
+        <Route path="/properties/:id"    element={<PropertyForm />} />
+        <Route path="/tenants"           element={<Tenants />} />
+        <Route path="/leases"            element={<Leases />} />
+        <Route path="/financials"        element={<Financials />} />
+        <Route path="/maintenance"       element={<Maintenance />} />
+        <Route path="/analytics"         element={<Analytics />} />
+        <Route path="/entities"          element={<Entities />} />
+        <Route path="/alerts"            element={<Alerts />} />
+        <Route path="/settings"          element={<Settings />} />
+        <Route path="*"                  element={<Navigate to="/" replace />} />
       </Routes>
     </AppShell>
   )
