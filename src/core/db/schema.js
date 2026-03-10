@@ -1,9 +1,9 @@
 // ============================================================
-// ACME Landlord Software — IndexedDB Schema v1
-// Storage adapter pattern: swap local for cloud without rewrite
+// ACME Landlord Software — IndexedDB Schema v2
+// v2: Corrected property data structure (nested address, propertyType)
 // ============================================================
 export const DB_NAME = 'acme-landlord-db'
-export const DB_VERSION = 1
+export const DB_VERSION = 2
 
 export const STORES = {
   PROPERTIES:     'properties',
@@ -24,7 +24,14 @@ export const STORES = {
 export async function initDB() {
   const { openDB } = await import('idb')
   return openDB(DB_NAME, DB_VERSION, {
-    upgrade(db) {
+    upgrade(db, oldVersion) {
+      // v2 upgrade: clear all stores to force reseed with corrected structure
+      if (oldVersion < 2) {
+        for (const storeName of Array.from(db.objectStoreNames)) {
+          db.deleteObjectStore(storeName)
+        }
+      }
+      // Create all stores fresh
       if (!db.objectStoreNames.contains(STORES.PROPERTIES)) {
         const ps = db.createObjectStore(STORES.PROPERTIES, { keyPath: 'id' })
         ps.createIndex('llcId',  'llcId',  { unique: false })
@@ -55,18 +62,12 @@ export async function initDB() {
         ms.createIndex('status',     'status',     { unique: false })
         ms.createIndex('priority',   'priority',   { unique: false })
       }
-      if (!db.objectStoreNames.contains(STORES.INSURANCE))
-        db.createObjectStore(STORES.INSURANCE,      { keyPath: 'id' })
-      if (!db.objectStoreNames.contains(STORES.ENTITIES))
-        db.createObjectStore(STORES.ENTITIES,       { keyPath: 'id' })
-      if (!db.objectStoreNames.contains(STORES.VENDORS))
-        db.createObjectStore(STORES.VENDORS,        { keyPath: 'id' })
-      if (!db.objectStoreNames.contains(STORES.ALERTS))
-        db.createObjectStore(STORES.ALERTS,         { keyPath: 'id' })
-      if (!db.objectStoreNames.contains(STORES.SETTINGS))
-        db.createObjectStore(STORES.SETTINGS,       { keyPath: 'key' })
-      if (!db.objectStoreNames.contains(STORES.HELOC))
-        db.createObjectStore(STORES.HELOC,          { keyPath: 'id' })
+      if (!db.objectStoreNames.contains(STORES.INSURANCE))        db.createObjectStore(STORES.INSURANCE,      { keyPath: 'id' })
+      if (!db.objectStoreNames.contains(STORES.ENTITIES))         db.createObjectStore(STORES.ENTITIES,       { keyPath: 'id' })
+      if (!db.objectStoreNames.contains(STORES.VENDORS))          db.createObjectStore(STORES.VENDORS,        { keyPath: 'id' })
+      if (!db.objectStoreNames.contains(STORES.ALERTS))           db.createObjectStore(STORES.ALERTS,         { keyPath: 'id' })
+      if (!db.objectStoreNames.contains(STORES.SETTINGS))         db.createObjectStore(STORES.SETTINGS,       { keyPath: 'key' })
+      if (!db.objectStoreNames.contains(STORES.HELOC))            db.createObjectStore(STORES.HELOC,          { keyPath: 'id' })
       if (!db.objectStoreNames.contains(STORES.DOCUMENTS)) {
         const ds = db.createObjectStore(STORES.DOCUMENTS, { keyPath: 'id' })
         ds.createIndex('propertyId', 'propertyId', { unique: false })
