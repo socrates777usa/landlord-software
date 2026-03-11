@@ -9,10 +9,11 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  background: var(--bg-base);
 }
 
 .page-content {
   margin-top: var(--header-h);
-  padding: 28px;
+  padding: 24px 28px;
   flex: 1;
 }

@@ -4,208 +4,254 @@ import { STORES } from '../../core/db/schema.js'
 import { calcProperty } from '../../core/calculations/property.js'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
-  LineChart, Line, CartesianGrid, Legend
+  CartesianGrid
 } from 'recharts'
 
-const fmt$ = n => `$${Number(n).toLocaleString()}`
-const fmtK = n => n >= 1000 ? `$${(n/1000).toFixed(0)}K` : `$${Number(n).toFixed(0)}`
+const fmt$ = n => `$${Math.abs(Number(n)).toLocaleString()}${Number(n) < 0 ? ' (neg)' : ''}`
+const fmtSimple = n => `$${Number(n).toLocaleString()}`
+const fmtK = n => {
+  const v = Number(n)
+  if (Math.abs(v) >= 1000) return `${v < 0 ? '-' : ''}$${(Math.abs(v)/1000).toFixed(0)}K`
+  return `${v < 0 ? '-' : ''}$${Math.abs(v).toFixed(0)}`
+}
 
 const AMBER  = '#f59e0b'
 const GREEN  = '#10b981'
-const RED    = '#ef4444'
-const BLUE   = '#3b82f6'
+const RED    = '#f43f5e'
+const BLUE   = '#38bdf8'
+const INDIGO = '#818cf8'
 
-const TipStyle = { background:'#0d1117', border:'1px solid #1e2d3d', color:'#e2e8f0', fontSize:'12px', borderRadius:'6px' }
+const TipStyle = {
+  background: '#07090f',
+  border: '1px solid rgba(255,255,255,0.1)',
+  color: '#e8edf8',
+  fontSize: '12px',
+  borderRadius: '8px',
+  padding: '8px 12px'
+}
 
 export default function Analytics() {
   const [props, setProps]     = useState([])
   const [tenants, setTenants] = useState([])
   const [maint, setMaint]     = useState([])
-  const [txns, setTxns]       = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     Promise.all([
-      getAll(STORES.PROPERTIES), getAll(STORES.TENANTS),
-      getAll(STORES.MAINTENANCE), getAll(STORES.TRANSACTIONS)
-    ]).then(([p, t, m, tx]) => {
-      setProps(p); setTenants(t); setMaint(m); setTxns(tx); setLoading(false)
+      getAll(STORES.PROPERTIES),
+      getAll(STORES.TENANTS),
+      getAll(STORES.MAINTENANCE)
+    ]).then(([p, t, m]) => {
+      setProps(p); setTenants(t); setMaint(m); setLoading(false)
     })
   }, [])
 
-  if (loading) return <div style={{display:'flex', alignItems:'center', justifyContent:'center', height:'60vh', color:'var(--text-secondary)'}}>Loading analytics...</div>
+  if (loading) return (
+    <div style={{display:'flex',alignItems:'center',justifyContent:'center',
+      height:'60vh',color:'var(--text-muted)',fontFamily:'var(--font-mono)',fontSize:'12px',letterSpacing:'0.04em'}}>
+      Loading analytics...
+    </div>
+  )
 
-  // Build property data with calcs
   const propData = props.map(p => {
     const c = calcProperty(p)
     const label = p.nickname || p.address?.street || p.id
     const tenantCount = tenants.filter(t => t.propertyId === p.id && t.status === 'active').length
-    const maintCost = maint.filter(m => m.propertyId === p.id).reduce((s,m) => s + Number(m.cost||0), 0)
+    const maintCost   = maint.filter(m => m.propertyId === p.id).reduce((s,m) => s + Number(m.cost||0), 0)
     return { ...p, label, calc: c, tenantCount, maintCost }
   })
 
-  // Cash flow ranking
-  const cfRanked = [...propData].sort((a,b) => (b.calc.cashFlow||0) - (a.calc.cashFlow||0))
-  const cfData   = cfRanked.map(p => ({ name: p.label.slice(0,14), cashFlow: p.calc.cashFlow || 0 }))
+  // FIX: use cashFlowMonthly not cashFlow
+  const cfRanked = [...propData].sort((a,b) => (b.calc.cashFlowMonthly||0) - (a.calc.cashFlowMonthly||0))
+  const cfData   = cfRanked.map(p => ({ name: p.label.slice(0,12), cf: Math.round(p.calc.cashFlowMonthly || 0) }))
+  const dscrData = propData.map(p => ({ name: p.label.slice(0,12), dscr: Number((p.calc.dscr||0).toFixed(2)) }))
+  const equityData = propData.map(p => ({ name: p.label.slice(0,12), equity: Math.round(p.calc.equity || 0) }))
+  const maintData  = propData.filter(p => p.maintCost > 0).map(p => ({ name: p.label.slice(0,12), cost: p.maintCost }))
 
-  // DSCR chart
-  const dscrData = propData.map(p => ({ name: p.label.slice(0,14), dscr: Number((p.calc.dscr||0).toFixed(2)) }))
-
-  // Equity chart
-  const equityData = propData.map(p => ({ name: p.label.slice(0,14), equity: p.calc.equity || 0 }))
-
-  // Maintenance chart
-  const maintData = propData.filter(p => p.maintCost > 0).map(p => ({ name: p.label.slice(0,14), cost: p.maintCost }))
-
-  // Portfolio totals
-  const totalIncome  = propData.reduce((s,p) => s + (p.income?.monthlyRent||0), 0)
-  const totalDebt    = propData.reduce((s,p) => s + (p.loan?.monthlyPayment||0), 0)
-  const totalCF      = propData.reduce((s,p) => s + (p.calc.cashFlow||0), 0)
-  const totalEquity  = propData.reduce((s,p) => s + (p.calc.equity||0), 0)
-  const totalValue   = propData.reduce((s,p) => s + (p.currentValue||0), 0)
-  const occupied     = propData.filter(p => p.status === 'active').length
-  const occPct       = props.length ? Math.round((occupied / props.length) * 100) : 0
-  const avgDscr      = propData.length ? (propData.reduce((s,p) => s + (p.calc.dscr||0), 0) / propData.length).toFixed(2) : '—'
-
-  // Vacancy days estimate (rough — days since last lease or acquisition)
-  const vacantProps = propData.filter(p => p.status === 'vacant')
+  const totalIncome = propData.reduce((s,p) => s + (p.income?.monthlyRent||0), 0)
+  const totalDebt   = propData.reduce((s,p) => s + (p.calc.monthlyPayment||0), 0)
+  const totalCF     = propData.reduce((s,p) => s + (p.calc.cashFlowMonthly||0), 0)
+  const totalEquity = propData.reduce((s,p) => s + (p.calc.equity||0), 0)
+  const totalValue  = propData.reduce((s,p) => s + (p.currentValue||0), 0)
+  const occupied    = propData.filter(p => p.status === 'active').length
+  const occPct      = props.length ? Math.round((occupied / props.length) * 100) : 0
+  const validDSCR   = propData.filter(p => p.calc.dscr !== null)
+  const avgDscr     = validDSCR.length ? (validDSCR.reduce((s,p)=>s+(p.calc.dscr||0),0)/validDSCR.length).toFixed(2) : '—'
+  const vacantCount = propData.filter(p => p.status === 'vacant').length
 
   const KPI = ({ label, value, color }) => (
-    <div style={{background:'var(--bg-elevated)', border:'1px solid var(--border)', borderRadius:'var(--radius)', padding:'1rem'}}>
-      <div style={{fontSize:'0.68rem', color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:'0.3rem'}}>{label}</div>
-      <div style={{fontSize:'1.3rem', fontWeight:700, color: color || 'var(--text-primary)', fontFamily:'var(--font-mono)'}}>{value}</div>
+    <div style={{
+      background:'var(--bg-surface)', border:'1px solid var(--border)',
+      borderRadius:'var(--radius)', padding:'1rem 1.2rem',
+      boxShadow:'var(--shadow-sm)'
+    }}>
+      <div style={{fontSize:'0.66rem',color:'var(--text-muted)',textTransform:'uppercase',
+        letterSpacing:'0.12em',marginBottom:'0.4rem',fontFamily:'var(--font-display)',fontWeight:700}}>{label}</div>
+      <div style={{fontSize:'1.4rem',fontWeight:700,color:color||'var(--text-primary)',
+        fontFamily:'var(--font-mono)',letterSpacing:'-0.02em'}}>{value}</div>
     </div>
   )
 
-  const SectionTitle = ({ children }) => (
-    <h2 style={{fontSize:'0.75rem', textTransform:'uppercase', letterSpacing:'0.1em', color:'var(--amber)', fontWeight:700, marginBottom:'1rem', fontFamily:'var(--font-display)', borderBottom:'1px solid var(--border)', paddingBottom:'0.5rem'}}>{children}</h2>
+  const ChartCard = ({ title, children }) => (
+    <div style={{background:'var(--bg-surface)',border:'1px solid var(--border)',
+      borderRadius:'var(--radius-lg)',padding:'1.25rem',boxShadow:'var(--shadow-sm)'}}>
+      <div style={{fontSize:'0.66rem',textTransform:'uppercase',letterSpacing:'0.12em',
+        color:'var(--amber)',fontWeight:700,marginBottom:'1rem',fontFamily:'var(--font-display)',
+        borderBottom:'1px solid rgba(245,158,11,0.15)',paddingBottom:'0.6rem'}}>{title}</div>
+      {children}
+    </div>
+  )
+
+  const noData = (
+    <div style={{display:'flex',alignItems:'center',justifyContent:'center',
+      height:200,color:'var(--text-muted)',fontSize:'0.8rem',fontFamily:'var(--font-mono)'}}>
+      No data yet
+    </div>
   )
 
   return (
-    <div style={{padding:'2rem', maxWidth:'1400px', margin:'0 auto'}}>
-      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'2rem'}}>
-        <div>
-          <h1 style={{fontSize:'1.6rem', fontWeight:700, fontFamily:'var(--font-display)', letterSpacing:'0.04em', textTransform:'uppercase'}}>Analytics</h1>
-          <p style={{fontSize:'0.8rem', color:'var(--text-secondary)', marginTop:'0.3rem'}}>{props.length} properties · {tenants.filter(t=>t.status==='active').length} active tenants</p>
-        </div>
+    <div style={{padding:'1.75rem 2rem',maxWidth:'1400px',margin:'0 auto'}}>
+      <div style={{marginBottom:'1.75rem'}}>
+        <h1 style={{fontSize:'1.4rem',fontWeight:700,fontFamily:'var(--font-display)',
+          letterSpacing:'-0.01em',color:'var(--text-primary)',margin:0}}>Analytics</h1>
+        <p style={{fontSize:'0.78rem',color:'var(--text-muted)',marginTop:'0.3rem'}}>
+          {props.length} properties · {tenants.filter(t=>t.status==='active').length} active tenants
+        </p>
       </div>
 
       {/* KPI Row */}
-      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(170px,1fr))', gap:'1rem', marginBottom:'2rem'}}>
-        <KPI label="Monthly Income"   value={fmtK(totalIncome)} color={GREEN}/>
-        <KPI label="Monthly Debt"     value={fmtK(totalDebt)}   color={RED}/>
-        <KPI label="Net Cash Flow"    value={fmtK(totalCF)}     color={totalCF>=0?GREEN:RED}/>
-        <KPI label="Total Equity"     value={fmtK(totalEquity)} color={AMBER}/>
-        <KPI label="Portfolio Value"  value={fmtK(totalValue)}/>
-        <KPI label="Occupancy"        value={`${occPct}%`}      color={occPct>=90?GREEN:occPct>=70?AMBER:RED}/>
-        <KPI label="Avg DSCR"         value={avgDscr}           color={Number(avgDscr)>=1.25?GREEN:Number(avgDscr)>=1.0?AMBER:RED}/>
-        <KPI label="Vacant Units"     value={vacantProps.length} color={vacantProps.length>0?RED:GREEN}/>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',
+        gap:'0.85rem',marginBottom:'1.75rem'}}>
+        <KPI label="Monthly Income"  value={fmtK(totalIncome)} color={GREEN}/>
+        <KPI label="Monthly Debt"    value={fmtK(totalDebt)}   color={RED}/>
+        <KPI label="Net Cash Flow"   value={fmtK(totalCF)}     color={totalCF>=0?GREEN:RED}/>
+        <KPI label="Total Equity"    value={fmtK(totalEquity)} color={AMBER}/>
+        <KPI label="Portfolio Value" value={fmtK(totalValue)}/>
+        <KPI label="Occupancy"       value={`${occPct}%`}      color={occPct>=90?GREEN:occPct>=70?AMBER:RED}/>
+        <KPI label="Avg DSCR"        value={avgDscr}           color={Number(avgDscr)>=1.25?GREEN:Number(avgDscr)>=1.0?AMBER:RED}/>
+        <KPI label="Vacant Units"    value={vacantCount}       color={vacantCount>0?RED:GREEN}/>
       </div>
 
-      {/* Charts Grid */}
-      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1.5rem'}}>
+      {/* Charts 2x2 */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'1.25rem',marginBottom:'1.25rem'}}>
 
-        {/* Cash Flow by Property */}
-        <div style={{background:'var(--bg-elevated)', border:'1px solid var(--border)', borderRadius:'var(--radius)', padding:'1.25rem'}}>
-          <SectionTitle>Monthly Cash Flow by Property</SectionTitle>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={cfData} margin={{top:0, right:10, left:10, bottom:40}}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e2d3d"/>
-              <XAxis dataKey="name" tick={{fill:'#7a95b0', fontSize:11}} angle={-35} textAnchor="end"/>
-              <YAxis tick={{fill:'#7a95b0', fontSize:11}} tickFormatter={n => `$${n}`}/>
-              <Tooltip contentStyle={TipStyle} formatter={v => [fmt$(v), 'Cash Flow']}/>
-              <Bar dataKey="cashFlow" radius={[4,4,0,0]}>
-                {cfData.map((d,i) => <Cell key={i} fill={d.cashFlow >= 0 ? GREEN : RED}/>)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* DSCR by Property */}
-        <div style={{background:'var(--bg-elevated)', border:'1px solid var(--border)', borderRadius:'var(--radius)', padding:'1.25rem'}}>
-          <SectionTitle>DSCR by Property (≥1.25 = healthy)</SectionTitle>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={dscrData} margin={{top:0, right:10, left:0, bottom:40}}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e2d3d"/>
-              <XAxis dataKey="name" tick={{fill:'#7a95b0', fontSize:11}} angle={-35} textAnchor="end"/>
-              <YAxis tick={{fill:'#7a95b0', fontSize:11}} domain={[0, 2]}/>
-              <Tooltip contentStyle={TipStyle} formatter={v => [v.toFixed(2), 'DSCR']}/>
-              <Bar dataKey="dscr" radius={[4,4,0,0]}>
-                {dscrData.map((d,i) => <Cell key={i} fill={d.dscr>=1.25 ? GREEN : d.dscr>=1.0 ? AMBER : RED}/>)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Equity by Property */}
-        <div style={{background:'var(--bg-elevated)', border:'1px solid var(--border)', borderRadius:'var(--radius)', padding:'1.25rem'}}>
-          <SectionTitle>Equity by Property</SectionTitle>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={equityData} margin={{top:0, right:10, left:10, bottom:40}}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e2d3d"/>
-              <XAxis dataKey="name" tick={{fill:'#7a95b0', fontSize:11}} angle={-35} textAnchor="end"/>
-              <YAxis tick={{fill:'#7a95b0', fontSize:11}} tickFormatter={fmtK}/>
-              <Tooltip contentStyle={TipStyle} formatter={v => [fmt$(v), 'Equity']}/>
-              <Bar dataKey="equity" fill={AMBER} radius={[4,4,0,0]}/>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Maintenance Cost */}
-        <div style={{background:'var(--bg-elevated)', border:'1px solid var(--border)', borderRadius:'var(--radius)', padding:'1.25rem'}}>
-          <SectionTitle>Maintenance Cost by Property</SectionTitle>
-          {maintData.length === 0 ? (
-            <div style={{display:'flex', alignItems:'center', justifyContent:'center', height:'220px', color:'var(--text-muted)', fontSize:'0.85rem'}}>No maintenance costs logged yet</div>
-          ) : (
+        <ChartCard title="Monthly Cash Flow by Property">
+          {cfData.length === 0 ? noData : (
             <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={maintData} margin={{top:0, right:10, left:10, bottom:40}}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e2d3d"/>
-                <XAxis dataKey="name" tick={{fill:'#7a95b0', fontSize:11}} angle={-35} textAnchor="end"/>
-                <YAxis tick={{fill:'#7a95b0', fontSize:11}} tickFormatter={fmtK}/>
-                <Tooltip contentStyle={TipStyle} formatter={v => [fmt$(v), 'Maint. Cost']}/>
+              <BarChart data={cfData} margin={{top:4,right:8,left:8,bottom:50}}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)"/>
+                <XAxis dataKey="name" tick={{fill:'#3d4a6b',fontSize:10}} angle={-30} textAnchor="end" interval={0}/>
+                <YAxis tick={{fill:'#3d4a6b',fontSize:10}} tickFormatter={n=>n>=0?`$${n}`:`-$${Math.abs(n)}`}/>
+                <Tooltip contentStyle={TipStyle} formatter={v=>[`$${Number(v).toLocaleString()}/mo`,'Cash Flow']}/>
+                <Bar dataKey="cf" radius={[4,4,0,0]}>
+                  {cfData.map((d,i) => <Cell key={i} fill={d.cf>=0?GREEN:RED}/>)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </ChartCard>
+
+        <ChartCard title="DSCR by Property  (≥ 1.25 = Healthy)">
+          {dscrData.length === 0 ? noData : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={dscrData} margin={{top:4,right:8,left:0,bottom:50}}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)"/>
+                <XAxis dataKey="name" tick={{fill:'#3d4a6b',fontSize:10}} angle={-30} textAnchor="end" interval={0}/>
+                <YAxis tick={{fill:'#3d4a6b',fontSize:10}} domain={[0,'auto']}/>
+                <Tooltip contentStyle={TipStyle} formatter={v=>[Number(v).toFixed(2),'DSCR']}/>
+                <Bar dataKey="dscr" radius={[4,4,0,0]}>
+                  {dscrData.map((d,i)=><Cell key={i} fill={d.dscr>=1.25?GREEN:d.dscr>=1.0?AMBER:RED}/>)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </ChartCard>
+
+        <ChartCard title="Equity by Property">
+          {equityData.length === 0 ? noData : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={equityData} margin={{top:4,right:8,left:8,bottom:50}}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)"/>
+                <XAxis dataKey="name" tick={{fill:'#3d4a6b',fontSize:10}} angle={-30} textAnchor="end" interval={0}/>
+                <YAxis tick={{fill:'#3d4a6b',fontSize:10}} tickFormatter={n=>`$${(n/1000).toFixed(0)}K`}/>
+                <Tooltip contentStyle={TipStyle} formatter={v=>[`$${Number(v).toLocaleString()}`,'Equity']}/>
+                <Bar dataKey="equity" fill={AMBER} radius={[4,4,0,0]}/>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </ChartCard>
+
+        <ChartCard title="Maintenance Cost by Property">
+          {maintData.length === 0 ? noData : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={maintData} margin={{top:4,right:8,left:8,bottom:50}}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)"/>
+                <XAxis dataKey="name" tick={{fill:'#3d4a6b',fontSize:10}} angle={-30} textAnchor="end" interval={0}/>
+                <YAxis tick={{fill:'#3d4a6b',fontSize:10}} tickFormatter={n=>`$${n}`}/>
+                <Tooltip contentStyle={TipStyle} formatter={v=>[`$${Number(v).toLocaleString()}`,'Maint.']}/>
                 <Bar dataKey="cost" fill={BLUE} radius={[4,4,0,0]}/>
               </BarChart>
             </ResponsiveContainer>
           )}
-        </div>
+        </ChartCard>
       </div>
 
-      {/* Property Rankings Table */}
-      <div style={{background:'var(--bg-elevated)', border:'1px solid var(--border)', borderRadius:'var(--radius)', padding:'1.25rem', marginTop:'1.5rem'}}>
-        <SectionTitle>Property Profitability Rankings</SectionTitle>
+      {/* Rankings Table */}
+      <div style={{background:'var(--bg-surface)',border:'1px solid var(--border)',
+        borderRadius:'var(--radius-lg)',padding:'1.25rem',boxShadow:'var(--shadow-sm)'}}>
+        <div style={{fontSize:'0.66rem',textTransform:'uppercase',letterSpacing:'0.12em',
+          color:'var(--amber)',fontWeight:700,marginBottom:'1rem',fontFamily:'var(--font-display)',
+          borderBottom:'1px solid rgba(245,158,11,0.15)',paddingBottom:'0.6rem'}}>
+          Property Profitability Rankings
+        </div>
         <div style={{overflowX:'auto'}}>
-          <table style={{width:'100%', borderCollapse:'collapse', fontSize:'0.85rem'}}>
+          <table style={{width:'100%',borderCollapse:'collapse',fontSize:'0.84rem'}}>
             <thead>
               <tr style={{borderBottom:'1px solid var(--border)'}}>
-                {['Rank','Property','Status','Rent/Mo','Cash Flow','DSCR','Cap Rate','CoC Return','Equity','Value'].map(h => (
-                  <th key={h} style={{padding:'0.6rem 0.75rem', textAlign: h==='Rank'||h==='Property'?'left':'right', fontSize:'0.7rem', textTransform:'uppercase', letterSpacing:'0.08em', color:'var(--text-secondary)', fontFamily:'var(--font-display)'}}>{h}</th>
+                {['#','Property','Status','Rent/Mo','Cash Flow','DSCR','Cap Rate','CoC','Equity','Value'].map(h=>(
+                  <th key={h} style={{padding:'0.55rem 0.75rem',textAlign:h==='#'||h==='Property'?'left':'right',
+                    fontSize:'0.66rem',textTransform:'uppercase',letterSpacing:'0.1em',
+                    color:'var(--text-muted)',fontFamily:'var(--font-display)',fontWeight:700,whiteSpace:'nowrap'}}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {cfRanked.map((p, i) => {
+              {cfRanked.map((p,i) => {
                 const c = p.calc
+                const cf = c.cashFlowMonthly || 0
                 return (
-                  <tr key={p.id} style={{borderBottom:'1px solid var(--border)'}}>
-                    <td style={{padding:'0.7rem 0.75rem', color:'var(--text-muted)', fontFamily:'var(--font-mono)'}}>{i+1}</td>
-                    <td style={{padding:'0.7rem 0.75rem', fontWeight:600}}>{p.label}</td>
-                    <td style={{padding:'0.7rem 0.75rem'}}>
-                      <span style={{padding:'0.15rem 0.5rem', borderRadius:'3px', fontSize:'0.7rem', fontWeight:700,
-                        background: p.status==='active'?'var(--green-dim)':'var(--red-dim)',
-                        color: p.status==='active'?'var(--green)':'var(--red)'}}>
-                        {p.status || 'unknown'}
-                      </span>
+                  <tr key={p.id} style={{borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
+                    <td style={{padding:'0.65rem 0.75rem',color:'var(--text-muted)',fontFamily:'var(--font-mono)',fontSize:'0.75rem'}}>{i+1}</td>
+                    <td style={{padding:'0.65rem 0.75rem',fontWeight:600,color:'var(--text-primary)'}}>{p.label}</td>
+                    <td style={{padding:'0.65rem 0.75rem'}}>
+                      <span style={{padding:'0.15rem 0.55rem',borderRadius:'20px',fontSize:'0.66rem',fontWeight:700,
+                        background:p.status==='active'?'var(--green-dim)':'p.status==="vacant"?var(--red-dim):"rgba(255,255,255,0.05)"',
+                        color:p.status==='active'?'#34d399':p.status==='vacant'?'#fb7185':'var(--text-muted)',
+                        border:`1px solid ${p.status==='active'?'rgba(16,185,129,0.2)':p.status==='vacant'?'rgba(244,63,94,0.2)':'var(--border)'}`
+                      }}>{p.status||'unknown'}</span>
                     </td>
-                    <td style={{padding:'0.7rem 0.75rem', textAlign:'right'}}>{fmt$(p.income?.monthlyRent||0)}</td>
-                    <td style={{padding:'0.7rem 0.75rem', textAlign:'right', color: c.cashFlow>=0?'var(--green)':'var(--red)', fontWeight:700}}>{fmt$(c.cashFlow||0)}</td>
-                    <td style={{padding:'0.7rem 0.75rem', textAlign:'right', color: c.dscr>=1.25?'var(--green)':c.dscr>=1.0?'var(--yellow)':'var(--red)'}}>{(c.dscr||0).toFixed(2)}</td>
-                    <td style={{padding:'0.7rem 0.75rem', textAlign:'right'}}>{c.capRate ? `${c.capRate.toFixed(1)}%` : '—'}</td>
-                    <td style={{padding:'0.7rem 0.75rem', textAlign:'right'}}>{c.cocReturn ? `${c.cocReturn.toFixed(1)}%` : '—'}</td>
-                    <td style={{padding:'0.7rem 0.75rem', textAlign:'right', color:'var(--amber)', fontWeight:700}}>{fmt$(c.equity||0)}</td>
-                    <td style={{padding:'0.7rem 0.75rem', textAlign:'right'}}>{fmt$(p.currentValue||0)}</td>
+                    <td style={{padding:'0.65rem 0.75rem',textAlign:'right',fontFamily:'var(--font-mono)',fontSize:'0.8rem'}}>{fmtSimple(p.income?.monthlyRent||0)}</td>
+                    <td style={{padding:'0.65rem 0.75rem',textAlign:'right',fontFamily:'var(--font-mono)',fontSize:'0.8rem',
+                      color:cf>=0?'var(--green)':'var(--red)',fontWeight:700}}>{cf>=0?'+':''}{fmtSimple(cf)}</td>
+                    <td style={{padding:'0.65rem 0.75rem',textAlign:'right',fontFamily:'var(--font-mono)',fontSize:'0.8rem',
+                      color:c.dscr>=1.25?'var(--green)':c.dscr>=1.0?'var(--yellow)':'var(--red)',fontWeight:600}}>
+                      {c.dscr?c.dscr.toFixed(2):'—'}</td>
+                    <td style={{padding:'0.65rem 0.75rem',textAlign:'right',fontFamily:'var(--font-mono)',fontSize:'0.8rem',color:'var(--text-secondary)'}}>
+                      {c.capRate?`${c.capRate.toFixed(1)}%`:'—'}</td>
+                    <td style={{padding:'0.65rem 0.75rem',textAlign:'right',fontFamily:'var(--font-mono)',fontSize:'0.8rem',color:'var(--text-secondary)'}}>
+                      {c.cocReturn?`${c.cocReturn.toFixed(1)}%`:'—'}</td>
+                    <td style={{padding:'0.65rem 0.75rem',textAlign:'right',fontFamily:'var(--font-mono)',fontSize:'0.8rem',color:'var(--amber)',fontWeight:700}}>
+                      {fmtSimple(c.equity||0)}</td>
+                    <td style={{padding:'0.65rem 0.75rem',textAlign:'right',fontFamily:'var(--font-mono)',fontSize:'0.8rem',color:'var(--text-secondary)'}}>
+                      {fmtSimple(p.currentValue||0)}</td>
                   </tr>
                 )
               })}
+              {cfRanked.length === 0 && (
+                <tr><td colSpan={10} style={{padding:'3rem',textAlign:'center',color:'var(--text-muted)',fontFamily:'var(--font-mono)',fontSize:'0.8rem'}}>
+                  No properties to rank yet
+                </td></tr>
+              )}
             </tbody>
           </table>
         </div>

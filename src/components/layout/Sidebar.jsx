@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Building2, Users, FileText, DollarSign, Wrench,
   Shield, Hammer, CreditCard, TrendingUp, ArrowRightLeft,
-  BarChart2, Landmark, Bell, Settings
+  BarChart2, Landmark, Bell, Settings, Home
 } from 'lucide-react'
 import './Sidebar.css'
 
@@ -58,7 +58,9 @@ export default function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
-        <span className="brand-icon">◈</span>
+        <div className="brand-icon">
+          <Home size={14} strokeWidth={2.5} />
+        </div>
         <span className="brand-name">ACME</span>
       </div>
       <nav className="sidebar-nav">
@@ -72,7 +74,7 @@ export default function Sidebar() {
                 end={to === '/'}
                 className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
               >
-                <Icon size={15} strokeWidth={1.8} />
+                <Icon size={14} strokeWidth={1.7} />
                 <span>{label}</span>
               </NavLink>
             ))}

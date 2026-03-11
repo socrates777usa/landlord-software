@@ -12,11 +12,19 @@ const TITLES = {
   '/entities':    'Entities',
   '/alerts':      'Alerts',
   '/settings':    'Settings',
+  '/insurance':   'Insurance',
+  '/vendors':     'Vendors',
+  '/heloc':       'Credit Lines',
+  '/brrrr':       'BRRRR Pipeline',
+  '/capital':     'Capital Events',
 }
 
 export default function Header() {
   const { pathname } = useLocation()
-  const title = TITLES[pathname] || 'ACME'
+  // Match exact or prefix
+  const title = TITLES[pathname] ||
+    Object.entries(TITLES).find(([k]) => pathname.startsWith(k + '/') && k !== '/')?.[1] ||
+    'ACME'
   const today = new Date().toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' })
 
   return (
