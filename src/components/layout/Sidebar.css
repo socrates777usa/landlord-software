@@ -1,120 +1,118 @@
+/* ============================================================
+   SIDEBAR — Daybreak Theme
+   Dark navy sidebar on light content — Stripe / Vercel approach
+   ============================================================ */
+
 .sidebar {
   width: var(--sidebar-w);
-  min-height: 100vh;
-  background: #07090f;
-  border-right: 1px solid rgba(255,255,255,0.05);
+  height: 100vh;
+  background: var(--bg-sidebar);
   display: flex;
   flex-direction: column;
-  position: fixed;
-  top: 0; left: 0;
-  z-index: 100;
-  overflow-y: auto;
+  flex-shrink: 0;
+  overflow: hidden;
 }
 
+/* ── Brand ── */
 .sidebar-brand {
+  height: var(--header-h);
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 16px;
-  height: var(--header-h);
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-  position: sticky;
-  top: 0;
-  background: #07090f;
-  z-index: 1;
+  gap: 9px;
+  padding: 0 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
   flex-shrink: 0;
 }
 
 .brand-icon {
-  width: 28px; height: 28px;
-  background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+  width: 26px;
+  height: 26px;
+  background: var(--accent);
   border-radius: 7px;
-  display: flex; align-items: center; justify-content: center;
-  color: #ffffff;
-  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 0 12px rgba(99,102,241,0.4);
+  color: #fff;
+  box-shadow: 0 0 0 1px rgba(37,99,235,0.5), 0 2px 8px rgba(37,99,235,0.4);
 }
 
 .brand-name {
-  font-family: var(--font-display);
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #e8edf8;
+  font-size: 13px;
+  font-weight: var(--fw-bold);
+  color: #ffffff;
+  letter-spacing: -0.01em;
 }
 
+/* ── Nav ── */
 .sidebar-nav {
   flex: 1;
-  padding: 8px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px 0 16px;
 }
+.sidebar-nav::-webkit-scrollbar { width: 0; }
 
-.nav-group {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 4px;
-}
+/* Group */
+.nav-group { margin-top: 18px; }
+.nav-group:first-child { margin-top: 6px; }
 
 .nav-group-label {
-  font-family: var(--font-display);
-  font-size: 8.5px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
+  font-size: 10px;
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: rgba(61,74,107,0.9);
-  padding: 12px 12px 3px;
+  color: rgba(255,255,255,0.28);
+  padding: 0 14px 3px;
+  display: block;
 }
 
+/* Nav item */
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 6.5px 12px;
-  border-radius: 6px;
-  color: rgba(123,139,184,0.85);
-  font-family: var(--font-body);
+  gap: 8px;
+  padding: 5px 14px;
   font-size: 13px;
-  font-weight: 450;
-  transition: all 0.1s ease;
-  border-left: 2px solid transparent;
+  font-weight: var(--fw-normal);
+  color: var(--sidebar-text);
+  cursor: pointer;
   text-decoration: none;
-  margin: 1px 0;
+  transition: color 0.1s, background 0.1s;
+  position: relative;
+  white-space: nowrap;
+  user-select: none;
 }
-.nav-item svg { flex-shrink: 0; opacity: 0.7; }
+
+.nav-item svg { flex-shrink: 0; opacity: 0.5; transition: opacity 0.1s; }
 
 .nav-item:hover {
-  background: rgba(255,255,255,0.04);
-  color: #c4ceea;
-  border-left-color: rgba(255,255,255,0.1);
+  color: var(--sidebar-text-hover);
+  background: rgba(255,255,255,0.06);
 }
-.nav-item:hover svg { opacity: 1; }
+.nav-item:hover svg { opacity: 0.8; }
 
+/* Active: blue accent bar, lighter bg */
 .nav-item.active {
-  background: rgba(99,102,241,0.12);
-  color: #a5b4fc;
-  border-left-color: #6366f1;
-  font-weight: 500;
+  color: #ffffff;
+  background: rgba(37,99,235,0.18);
+  font-weight: var(--fw-medium);
 }
-.nav-item.active svg { color: #6366f1; opacity: 1; }
+.nav-item.active svg { opacity: 1; color: #93c5fd; } /* blue-300 */
 
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 50%;
+  transform: translateY(-50%);
+  width: 2px; height: 18px;
+  background: var(--accent-light);
+  border-radius: 0 2px 2px 0;
+}
+
+/* Footer */
 .sidebar-footer {
-  padding: 8px 8px 12px;
-  border-top: 1px solid rgba(255,255,255,0.05);
-  position: sticky;
-  bottom: 0;
-  background: #07090f;
-  display: flex;
-  flex-direction: column;
+  padding: 10px 14px;
+  border-top: 1px solid rgba(255,255,255,0.07);
 }
-
-.version {
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  color: rgba(61,74,107,0.7);
-  letter-spacing: 0.04em;
-  padding: 4px 12px 0;
-}
+.version { font-size: 10px; color: rgba(255,255,255,0.22); letter-spacing: 0.03em; }

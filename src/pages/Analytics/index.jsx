@@ -15,20 +15,26 @@ const fmtK = n => {
   return `${v < 0 ? '-' : ''}$${Math.abs(v).toFixed(0)}`
 }
 
-const AMBER  = '#f59e0b'
-const GREEN  = '#10b981'
-const RED    = '#f43f5e'
-const BLUE   = '#38bdf8'
-const INDIGO = '#818cf8'
+// Carbon Ledger palette — matches iOS system colors used in index.css
+const AMBER  = '#ffd60a'
+const GREEN  = '#30d158'
+const RED    = '#ff453a'
+const BLUE   = '#0a84ff'
+const INDIGO = '#635BFF'
 
 const TipStyle = {
-  background: '#07090f',
-  border: '1px solid rgba(255,255,255,0.1)',
-  color: '#e8edf8',
+  background: '#1c1c1e',
+  border: '1px solid rgba(255,255,255,0.08)',
+  color: '#ededed',
   fontSize: '12px',
-  borderRadius: '8px',
-  padding: '8px 12px'
+  fontFamily: "'Inter', sans-serif",
+  borderRadius: '6px',
+  padding: '8px 12px',
+  boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
 }
+// Axis tick color — Carbon Ledger muted
+const TICK = { fill: '#48484a', fontSize: 10, fontFamily: 'Inter, sans-serif' }
+const GRID = 'rgba(255,255,255,0.05)'
 
 export default function Analytics() {
   const [props, setProps]     = useState([])
