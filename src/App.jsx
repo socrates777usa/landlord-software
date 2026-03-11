@@ -21,6 +21,21 @@ import MaintenanceForm from './pages/Maintenance/MaintenanceForm.jsx'
 import EntityList     from './pages/Entities/EntityList.jsx'
 import EntityForm     from './pages/Entities/EntityForm.jsx'
 
+import InsuranceList  from './pages/Insurance/InsuranceList.jsx'
+import InsuranceForm  from './pages/Insurance/InsuranceForm.jsx'
+
+import VendorList     from './pages/Vendors/VendorList.jsx'
+import VendorForm     from './pages/Vendors/VendorForm.jsx'
+
+import HelocList      from './pages/Heloc/HelocList.jsx'
+import HelocForm      from './pages/Heloc/HelocForm.jsx'
+
+import BrrrrList      from './pages/Brrrr/BrrrrList.jsx'
+import BrrrrForm      from './pages/Brrrr/BrrrrForm.jsx'
+
+import CapitalList    from './pages/CapitalEvents/CapitalList.jsx'
+import CapitalForm    from './pages/CapitalEvents/CapitalForm.jsx'
+
 import Analytics      from './pages/Analytics/index.jsx'
 import Alerts         from './pages/Alerts/index.jsx'
 import Settings       from './pages/Settings/index.jsx'
@@ -29,45 +44,57 @@ export default function App() {
   return (
     <AppShell>
       <Routes>
-        {/* Dashboard */}
-        <Route path="/"                    element={<Dashboard />} />
+        <Route path="/"                      element={<Dashboard />} />
 
-        {/* Properties */}
-        <Route path="/properties"          element={<PropertyList />} />
-        <Route path="/properties/new"      element={<PropertyForm />} />
-        <Route path="/properties/:id"      element={<PropertyForm />} />
+        <Route path="/properties"            element={<PropertyList />} />
+        <Route path="/properties/new"        element={<PropertyForm />} />
+        <Route path="/properties/:id"        element={<PropertyForm />} />
 
-        {/* Tenants */}
-        <Route path="/tenants"             element={<TenantList />} />
-        <Route path="/tenants/new"         element={<TenantForm />} />
-        <Route path="/tenants/:id"         element={<TenantForm />} />
+        <Route path="/tenants"               element={<TenantList />} />
+        <Route path="/tenants/new"           element={<TenantForm />} />
+        <Route path="/tenants/:id"           element={<TenantForm />} />
 
-        {/* Leases */}
-        <Route path="/leases"              element={<LeaseList />} />
-        <Route path="/leases/new"          element={<LeaseForm />} />
-        <Route path="/leases/:id"          element={<LeaseForm />} />
+        <Route path="/leases"                element={<LeaseList />} />
+        <Route path="/leases/new"            element={<LeaseForm />} />
+        <Route path="/leases/:id"            element={<LeaseForm />} />
 
-        {/* Financials */}
-        <Route path="/financials"          element={<FinancialList />} />
-        <Route path="/financials/new"      element={<FinancialForm />} />
-        <Route path="/financials/:id"      element={<FinancialForm />} />
+        <Route path="/financials"            element={<FinancialList />} />
+        <Route path="/financials/new"        element={<FinancialForm />} />
+        <Route path="/financials/:id"        element={<FinancialForm />} />
 
-        {/* Maintenance */}
-        <Route path="/maintenance"         element={<MaintenanceList />} />
-        <Route path="/maintenance/new"     element={<MaintenanceForm />} />
-        <Route path="/maintenance/:id"     element={<MaintenanceForm />} />
+        <Route path="/maintenance"           element={<MaintenanceList />} />
+        <Route path="/maintenance/new"       element={<MaintenanceForm />} />
+        <Route path="/maintenance/:id"       element={<MaintenanceForm />} />
 
-        {/* Entities */}
-        <Route path="/entities"            element={<EntityList />} />
-        <Route path="/entities/new"        element={<EntityForm />} />
-        <Route path="/entities/:id"        element={<EntityForm />} />
+        <Route path="/entities"              element={<EntityList />} />
+        <Route path="/entities/new"          element={<EntityForm />} />
+        <Route path="/entities/:id"          element={<EntityForm />} />
 
-        {/* Read-only / config pages */}
-        <Route path="/analytics"           element={<Analytics />} />
-        <Route path="/alerts"              element={<Alerts />} />
-        <Route path="/settings"            element={<Settings />} />
+        <Route path="/insurance"             element={<InsuranceList />} />
+        <Route path="/insurance/new"         element={<InsuranceForm />} />
+        <Route path="/insurance/:id"         element={<InsuranceForm />} />
 
-        <Route path="*"                    element={<Navigate to="/" replace />} />
+        <Route path="/vendors"               element={<VendorList />} />
+        <Route path="/vendors/new"           element={<VendorForm />} />
+        <Route path="/vendors/:id"           element={<VendorForm />} />
+
+        <Route path="/heloc"                 element={<HelocList />} />
+        <Route path="/heloc/new"             element={<HelocForm />} />
+        <Route path="/heloc/:id"             element={<HelocForm />} />
+
+        <Route path="/brrrr"                 element={<BrrrrList />} />
+        <Route path="/brrrr/new"             element={<BrrrrForm />} />
+        <Route path="/brrrr/:id"             element={<BrrrrForm />} />
+
+        <Route path="/capital"               element={<CapitalList />} />
+        <Route path="/capital/new"           element={<CapitalForm />} />
+        <Route path="/capital/:id"           element={<CapitalForm />} />
+
+        <Route path="/analytics"             element={<Analytics />} />
+        <Route path="/alerts"                element={<Alerts />} />
+        <Route path="/settings"              element={<Settings />} />
+
+        <Route path="*"                      element={<Navigate to="/" replace />} />
       </Routes>
     </AppShell>
   )
