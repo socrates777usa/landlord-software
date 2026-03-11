@@ -2,11 +2,22 @@
    DASHBOARD — Daybreak Theme (Light)
    ============================================================ */
 
-.dashboard { padding: 24px 28px; }
+.dashboard {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+  box-shadow: var(--shadow-sm);
+  min-height: calc(100vh - var(--header-h) - 40px);
+}
 
-.dash-loading {
-  padding: 60px; color: var(--text-muted);
-  font-size: var(--text-sm); text-align: center;
+/* Content frame — white panel that sits inside the gray bg */
+.dash-inner {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+  box-shadow: var(--shadow-sm);
 }
 
 /* ── KPI Grid ── */

@@ -87,7 +87,7 @@ export default function Settings() {
   )
 
   return (
-    <div style={{padding:'2rem', maxWidth:'680px', margin:'0 auto'}}>
+    <div className="page-frame" style={{maxWidth:'680px'}}>
       <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.5rem'}}>
         <div>
           <h1 style={{fontSize:'1.6rem', fontWeight:700, fontFamily:'var(--font-display)', letterSpacing:'0.04em', textTransform:'uppercase'}}>Settings</h1>

@@ -16,10 +16,13 @@
   overflow: hidden;
   min-width: 0;
   background: var(--bg-base);
+  border-left: 1px solid var(--border);
 }
 
 .page-content {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  padding: 20px 24px;
+  background: var(--bg-base);
 }

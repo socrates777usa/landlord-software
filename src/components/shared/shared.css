@@ -3,6 +3,20 @@
    ============================================================ */
 
 /* ── Page Layout ── */
+
+/* Global page frame — every page sits in a raised white panel on the gray bg */
+.page-frame,
+.list-page,
+.form-page,
+.prop-form-page {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px 26px;
+  box-shadow: var(--shadow-sm);
+  min-height: calc(100vh - var(--header-h) - 40px);
+}
+
 .page { padding: 28px 32px; max-width: 1200px; }
 
 .page-header {
@@ -255,7 +269,142 @@
 .filter-tab.active { background: var(--accent); color: #fff; }
 .filter-tab:not(.active):hover { background: var(--bg-hover); color: var(--text-primary); }
 
-/* ── Metric numbers ── */
+/* ── List page common patterns (Tenants, Leases, etc.) ── */
+.list-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 16px;
+}
+
+.list-title {
+  font-size: var(--text-xl);
+  font-weight: var(--fw-bold);
+  color: var(--text-primary);
+  letter-spacing: var(--ls-tight);
+  margin: 0 0 3px;
+}
+
+.list-sub { font-size: var(--text-sm); color: var(--text-muted); margin: 0; }
+
+.btn-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(37,99,235,0.3);
+  transition: background 0.12s;
+  white-space: nowrap;
+}
+.btn-add:hover { background: var(--accent-light); }
+
+/* List table */
+.list-table-wrap {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.list-table { width: 100%; border-collapse: collapse; font-size: var(--text-base); }
+
+.list-table th {
+  font-size: 10px;
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--ls-caps);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+  white-space: nowrap;
+}
+.list-table th.r { text-align: right; }
+
+.list-table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  vertical-align: middle;
+  font-size: var(--text-sm);
+}
+.list-table td.r { text-align: right; font-family: var(--font-mono); font-size: 12px; }
+
+.list-table tbody tr:hover td { background: var(--bg-hover); cursor: pointer; }
+.list-table tbody tr:last-child td { border-bottom: none; }
+
+/* Loading state */
+.page-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+/* Empty state */
+.list-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 80px 20px;
+  text-align: center;
+}
+.list-empty-icon { color: var(--text-muted); opacity: 0.25; }
+.list-empty h3 { font-size: var(--text-lg); font-weight: var(--fw-semibold); color: var(--text-secondary); margin: 0; }
+.list-empty p  { font-size: var(--text-sm); color: var(--text-muted); margin: 0; }
+
+/* List row (alternate layout) */
+.list-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.list-row:last-child { border-bottom: none; }
+.list-row:hover { background: var(--bg-hover); }
+
+.list-row-title { font-size: var(--text-base); font-weight: var(--fw-medium); color: var(--text-primary); }
+.list-row-sub   { font-size: var(--text-xs);   color: var(--text-muted); margin-top: 2px; }
+
+/* Form page header */
+.form-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.form-back-btn {
+  padding: 6px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: var(--font-body);
+}
+.form-back-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+
 .metric { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .metric-pos  { color: var(--green-text); }
 .metric-neg  { color: var(--red-text);   }

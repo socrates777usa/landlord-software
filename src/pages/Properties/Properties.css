@@ -2,8 +2,22 @@
    PROPERTIES PAGE — Daybreak Theme (Light)
    ============================================================ */
 
-.prop-list-page { padding: 24px 28px; }
-.properties-page { padding: 24px 28px; }
+.prop-list-page {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+  box-shadow: var(--shadow-sm);
+  min-height: calc(100vh - var(--header-h) - 40px);
+}
+.properties-page {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+  box-shadow: var(--shadow-sm);
+  min-height: calc(100vh - var(--header-h) - 40px);
+}
 
 .prop-loading {
   padding: 60px; color: var(--text-muted);

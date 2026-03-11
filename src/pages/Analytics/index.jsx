@@ -24,17 +24,17 @@ const INDIGO = '#635BFF'
 
 const TipStyle = {
   background: '#1c1c1e',
-  border: '1px solid rgba(255,255,255,0.08)',
-  color: '#ededed',
+  border: '1px solid #e2e8f0',
+  color: '#0f172a',
   fontSize: '12px',
   fontFamily: "'Inter', sans-serif",
   borderRadius: '6px',
   padding: '8px 12px',
-  boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
+  boxShadow: '0 4px 12px rgba(15,23,42,0.10)'
 }
-// Axis tick color — Carbon Ledger muted
-const TICK = { fill: '#48484a', fontSize: 10, fontFamily: 'Inter, sans-serif' }
-const GRID = 'rgba(255,255,255,0.05)'
+// Axis tick color — light mode
+const TICK = { fill: '#94a3b8', fontSize: 10, fontFamily: 'Inter, sans-serif' }
+const GRID = '#e2e8f0'
 
 export default function Analytics() {
   const [props, setProps]     = useState([])
@@ -116,7 +116,7 @@ export default function Analytics() {
   )
 
   return (
-    <div style={{padding:'1.75rem 2rem',maxWidth:'1400px',margin:'0 auto'}}>
+    <div className="page-frame" style={{maxWidth:'1400px'}}>
       <div style={{marginBottom:'1.75rem'}}>
         <h1 style={{fontSize:'1.4rem',fontWeight:700,fontFamily:'var(--font-display)',
           letterSpacing:'-0.01em',color:'var(--text-primary)',margin:0}}>Analytics</h1>
