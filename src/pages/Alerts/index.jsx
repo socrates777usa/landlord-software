@@ -1,169 +1,181 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, CheckCircle, AlertTriangle, AlertCircle, Info } from 'lucide-react'
+import { Bell, AlertTriangle, Info, CheckCircle } from 'lucide-react'
 import { getAll } from '../../core/storage/adapter.js'
 import { STORES } from '../../core/db/schema.js'
 
-const PRIORITY_META = {
-  critical: { icon: AlertCircle, color: 'var(--red)',    bg: 'var(--red-dim)',    label: 'Critical' },
-  warning:  { icon: AlertTriangle, color: 'var(--yellow)', bg: 'var(--yellow-dim)', label: 'Warning' },
-  info:     { icon: Info,          color: 'var(--blue)',   bg: 'var(--blue-dim)',   label: 'Info'  },
-}
-
-function buildAlerts(properties, tenants, maintenance, leases) {
-  const alerts = []
-  const today  = new Date()
-  const in60   = new Date(today); in60.setDate(in60.getDate() + 60)
-  const in90   = new Date(today); in90.setDate(in90.getDate() + 90)
-
-  // Vacant properties
-  properties.filter(p => p.status === 'vacant').forEach(p => {
-    alerts.push({ id: `vac-${p.id}`, priority: 'critical', category: 'Vacancy',
-      title: `Vacant unit: ${p.nickname || p.address?.street || p.id}`,
-      body: 'No active tenant assigned. Every vacant day costs money.',
-      link: `/properties/${p.id}` })
-  })
-
-  // Leases expiring within 60 days
-  leases.filter(l => l.endDate && new Date(l.endDate) <= in60 && new Date(l.endDate) >= today).forEach(l => {
-    const daysLeft = Math.round((new Date(l.endDate) - today) / 86400000)
-    alerts.push({ id: `lease-${l.id}`, priority: daysLeft <= 30 ? 'critical' : 'warning',
-      category: 'Lease', title: `Lease expiring in ${daysLeft} days`,
-      body: `${l.propertyId || 'Property'} — expires ${l.endDate}`,
-      link: `/leases/${l.id}` })
-  })
-
-  // Open/urgent maintenance
-  const openMaint = maintenance.filter(m => m.status !== 'closed')
-  if (openMaint.length > 0) {
-    const urgent = openMaint.filter(m => m.priority === 'emergency' || m.priority === 'urgent')
-    if (urgent.length > 0) {
-      alerts.push({ id: 'maint-urgent', priority: 'critical', category: 'Maintenance',
-        title: `${urgent.length} urgent/emergency maintenance issue${urgent.length > 1 ? 's' : ''}`,
-        body: 'Emergency or urgent work orders need immediate attention.',
-        link: '/maintenance' })
-    }
-    if (openMaint.length - urgent.length > 0) {
-      alerts.push({ id: 'maint-open', priority: 'info', category: 'Maintenance',
-        title: `${openMaint.length - urgent.length} open maintenance work order${openMaint.length - urgent.length > 1 ? 's' : ''}`,
-        body: 'Routine work orders are open and unresolved.',
-        link: '/maintenance' })
-    }
-  }
-
-  // Low DSCR
-  properties.forEach(p => {
-    const payment = p.loan?.monthlyPayment || 0
-    const rent    = p.income?.monthlyRent || 0
-    if (payment > 0 && rent > 0) {
-      const annualNOI = (rent * 12) - ((p.expenses?.propertyTax||0) + (p.expenses?.insurance||0) + (p.expenses?.hoa||0) + (p.expenses?.utilities||0))
-      const dscr = annualNOI / (payment * 12)
-      if (dscr < 1.0) {
-        alerts.push({ id: `dscr-${p.id}`, priority: 'critical', category: 'DSCR',
-          title: `Low DSCR: ${p.nickname || p.address?.street || p.id} (${dscr.toFixed(2)})`,
-          body: 'DSCR below 1.0 — property is not covering its debt service.',
-          link: `/properties/${p.id}` })
-      } else if (dscr < 1.25) {
-        alerts.push({ id: `dscr-warn-${p.id}`, priority: 'warning', category: 'DSCR',
-          title: `DSCR warning: ${p.nickname || p.address?.street || p.id} (${dscr.toFixed(2)})`,
-          body: 'DSCR below 1.25 — thin margin. Monitor closely.',
-          link: `/properties/${p.id}` })
-      }
-    }
-  })
-
-  return alerts.sort((a, b) => {
-    const order = { critical: 0, warning: 1, info: 2 }
-    return (order[a.priority] || 2) - (order[b.priority] || 2)
-  })
-}
+const today = new Date()
+const in30  = new Date(today); in30.setDate(today.getDate() + 30)
+const in60  = new Date(today); in60.setDate(today.getDate() + 60)
+const in90  = new Date(today); in90.setDate(today.getDate() + 90)
 
 export default function Alerts() {
-  const [allAlerts, setAlerts] = useState([])
-  const [dismissed, setDismissed] = useState(() => {
-    try { return new Set(JSON.parse(localStorage.getItem('dismissed_alerts') || '[]')) }
-    catch { return new Set() }
-  })
+  const [alerts, setAlerts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [filter, setFilter]   = useState('all')
   const navigate = useNavigate()
 
   useEffect(() => {
     Promise.all([
       getAll(STORES.PROPERTIES), getAll(STORES.TENANTS),
-      getAll(STORES.MAINTENANCE), getAll(STORES.LEASES)
-    ]).then(([p, t, m, l]) => {
-      setAlerts(buildAlerts(p, t, m, l)); setLoading(false)
+      getAll(STORES.LEASES), getAll(STORES.MAINTENANCE), getAll(STORES.INSURANCE)
+    ]).then(([props, tenants, leases, maint, insurance]) => {
+      const items = []
+
+      // Vacant properties
+      props.filter(p => p.status === 'vacant').forEach(p => {
+        items.push({ id:`vac-${p.id}`, severity:'high', category:'Vacancy',
+          title:`Vacant unit: ${p.nickname || p.address?.street || p.id}`,
+          detail:'No active tenant assigned to this property.',
+          action: () => navigate('/tenants/new') })
+      })
+
+      // Lease expirations
+      leases.forEach(l => {
+        if (!l.endDate) return
+        const end = new Date(l.endDate)
+        if (end < today) {
+          items.push({ id:`lease-exp-${l.id}`, severity:'high', category:'Lease',
+            title:`Lease expired: ${l.propertyAddress || l.id}`,
+            detail:`Lease ended ${l.endDate}. Action required.`,
+            action: () => navigate(`/leases/${l.id}`) })
+        } else if (end <= in30) {
+          items.push({ id:`lease-30-${l.id}`, severity:'high', category:'Lease',
+            title:`Lease expires in <30 days: ${l.propertyAddress || l.id}`,
+            detail:`Expires ${l.endDate}. Begin renewal process now.`,
+            action: () => navigate(`/leases/${l.id}`) })
+        } else if (end <= in60) {
+          items.push({ id:`lease-60-${l.id}`, severity:'medium', category:'Lease',
+            title:`Lease expires in <60 days: ${l.propertyAddress || l.id}`,
+            detail:`Expires ${l.endDate}. Start renewal conversation.`,
+            action: () => navigate(`/leases/${l.id}`) })
+        } else if (end <= in90) {
+          items.push({ id:`lease-90-${l.id}`, severity:'low', category:'Lease',
+            title:`Lease expires in <90 days: ${l.propertyAddress || l.id}`,
+            detail:`Expires ${l.endDate}. Plan ahead.`,
+            action: () => navigate(`/leases/${l.id}`) })
+        }
+      })
+
+      // Open maintenance
+      const openMaint = maint.filter(m => m.status === 'open' || m.status === 'in_progress')
+      if (openMaint.length > 0) {
+        openMaint.forEach(m => {
+          const sev = m.priority === 'emergency' ? 'high' : m.priority === 'urgent' ? 'medium' : 'low'
+          items.push({ id:`maint-${m.id}`, severity: sev, category:'Maintenance',
+            title:`Open work order: ${m.description?.slice(0,50) || m.id}`,
+            detail:`Priority: ${m.priority || 'routine'} · Status: ${m.status}`,
+            action: () => navigate(`/maintenance/${m.id}`) })
+        })
+      }
+
+      // Insurance expiring
+      insurance.forEach(ins => {
+        if (!ins.expirationDate) return
+        const exp = new Date(ins.expirationDate)
+        if (exp < today) {
+          items.push({ id:`ins-exp-${ins.id}`, severity:'high', category:'Insurance',
+            title:`Policy EXPIRED: ${ins.insurer || ins.id}`,
+            detail:`Policy ${ins.policyNumber || ''} expired ${ins.expirationDate}. Renew immediately.`,
+            action: () => navigate(`/insurance/${ins.id}`) })
+        } else if (exp <= in60) {
+          items.push({ id:`ins-60-${ins.id}`, severity:'medium', category:'Insurance',
+            title:`Policy expiring: ${ins.insurer || ins.id}`,
+            detail:`Expires ${ins.expirationDate}. Begin renewal process.`,
+            action: () => navigate(`/insurance/${ins.id}`) })
+        }
+      })
+
+      // Low/no maintenance reserve (properties with no reserve set)
+      props.forEach(p => {
+        const suggested = (p.currentValue || 0) * 0.01 / 12
+        const actual    = p.expenses?.maintenanceActual || 0
+        if (suggested > 0 && actual < suggested * 0.5) {
+          items.push({ id:`res-${p.id}`, severity:'low', category:'Reserve',
+            title:`Low maintenance reserve: ${p.nickname || p.address?.street || p.id}`,
+            detail:`Suggested $${suggested.toFixed(0)}/mo · Currently $${actual}/mo`,
+            action: () => navigate(`/properties/${p.id}`) })
+        }
+      })
+
+      const SEV = { high:0, medium:1, low:2 }
+      items.sort((a,b) => SEV[a.severity] - SEV[b.severity])
+      setAlerts(items); setLoading(false)
     })
   }, [])
 
-  const dismiss = (id) => {
-    const next = new Set(dismissed); next.add(id)
-    setDismissed(next)
-    localStorage.setItem('dismissed_alerts', JSON.stringify([...next]))
-  }
-  const clearAll = () => {
-    const ids = allAlerts.map(a => a.id)
-    const next = new Set([...dismissed, ...ids])
-    setDismissed(next)
-    localStorage.setItem('dismissed_alerts', JSON.stringify([...next]))
-  }
-
   if (loading) return <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'60vh',color:'var(--text-secondary)'}}>Loading alerts...</div>
 
-  const visible = allAlerts.filter(a => !dismissed.has(a.id))
-  const critical = visible.filter(a => a.priority === 'critical').length
-  const warning  = visible.filter(a => a.priority === 'warning').length
+  const FILTERS = ['all','high','medium','low']
+  const filtered = filter === 'all' ? alerts : alerts.filter(a => a.severity === filter)
+
+  const SevIcon = ({ sev }) => {
+    if (sev === 'high')   return <AlertTriangle size={16} style={{color:'var(--red)', flexShrink:0}}/>
+    if (sev === 'medium') return <AlertTriangle size={16} style={{color:'var(--yellow)', flexShrink:0}}/>
+    return <Info size={16} style={{color:'var(--blue)', flexShrink:0}}/>
+  }
+  const sevBg = { high:'var(--red-dim)', medium:'var(--yellow-dim)', low:'var(--blue-dim)' }
+  const sevClr = { high:'var(--red)', medium:'var(--yellow)', low:'var(--blue)' }
+
+  const counts = { high: alerts.filter(a=>a.severity==='high').length, medium: alerts.filter(a=>a.severity==='medium').length, low: alerts.filter(a=>a.severity==='low').length }
 
   return (
     <div style={{padding:'2rem', maxWidth:'900px', margin:'0 auto'}}>
-      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'2rem'}}>
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.5rem'}}>
         <div>
-          <h1 style={{fontSize:'1.6rem', fontWeight:700, fontFamily:'var(--font-display)', letterSpacing:'0.04em', textTransform:'uppercase', display:'flex', alignItems:'center', gap:'0.75rem'}}>
-            Alerts
-            {visible.length > 0 && <span style={{background:'var(--red)', color:'#fff', borderRadius:'12px', padding:'0.1rem 0.55rem', fontSize:'0.8rem', fontWeight:700}}>{visible.length}</span>}
-          </h1>
-          <p style={{fontSize:'0.8rem', color:'var(--text-secondary)', marginTop:'0.3rem'}}>
-            {critical > 0 && <span style={{color:'var(--red)'}}>{critical} critical</span>}
-            {critical > 0 && warning > 0 && ' · '}
-            {warning > 0 && <span style={{color:'var(--yellow)'}}>{warning} warning</span>}
-            {critical === 0 && warning === 0 && visible.length === 0 && <span style={{color:'var(--green)'}}>All clear ✓</span>}
-          </p>
+          <h1 style={{fontSize:'1.6rem', fontWeight:700, fontFamily:'var(--font-display)', letterSpacing:'0.04em', textTransform:'uppercase'}}>Alerts</h1>
+          <p style={{fontSize:'0.8rem', color:'var(--text-secondary)', marginTop:'0.3rem'}}>{alerts.length} active alert{alerts.length !== 1 ? 's' : ''}</p>
         </div>
-        {visible.length > 0 && (
-          <button onClick={clearAll} style={{padding:'0.4rem 0.9rem', background:'var(--bg-elevated)', border:'1px solid var(--border)', borderRadius:'var(--radius)', color:'var(--text-secondary)', fontSize:'0.8rem', cursor:'pointer'}}>
-            Dismiss All
-          </button>
-        )}
+        {alerts.length === 0 && <CheckCircle size={28} style={{color:'var(--green)'}}/>}
       </div>
 
-      {visible.length === 0 ? (
-        <div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'40vh', gap:'1rem', color:'var(--text-secondary)'}}>
+      {/* Summary badges */}
+      <div style={{display:'flex', gap:'0.75rem', marginBottom:'1.25rem', flexWrap:'wrap'}}>
+        {FILTERS.map(f => {
+          const cnt = f === 'all' ? alerts.length : counts[f]
+          return (
+            <button key={f} onClick={() => setFilter(f)}
+              style={{padding:'0.4rem 1rem', borderRadius:'var(--radius)', border:'1px solid var(--border-bright)',
+                background: filter===f ? (f==='all'?'var(--amber)': sevBg[f] || 'var(--bg-hover)') : 'var(--bg-elevated)',
+                color: filter===f ? (f==='all'?'var(--text-inverse)': sevClr[f] || 'var(--text-primary)') : 'var(--text-secondary)',
+                fontSize:'0.78rem', fontWeight:700, cursor:'pointer', fontFamily:'var(--font-body)'}}>
+              {f.charAt(0).toUpperCase()+f.slice(1)} ({cnt})
+            </button>
+          )
+        })}
+      </div>
+
+      {alerts.length === 0 ? (
+        <div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'4rem 2rem', color:'var(--text-muted)', gap:'1rem'}}>
           <CheckCircle size={56} style={{color:'var(--green)', opacity:0.7}}/>
-          <h3 style={{fontSize:'1.1rem', fontWeight:600, color:'var(--text-primary)'}}>No active alerts</h3>
-          <p style={{fontSize:'0.85rem'}}>Your portfolio is looking healthy. Check back after adding more properties or data.</p>
+          <h3 style={{margin:0, color:'var(--green)', fontFamily:'var(--font-display)', fontSize:'1.2rem', letterSpacing:'0.05em'}}>ALL CLEAR</h3>
+          <p style={{margin:0, fontSize:'0.85rem'}}>No active alerts. Portfolio is operating normally.</p>
         </div>
       ) : (
-        <div style={{display:'flex', flexDirection:'column', gap:'0.75rem'}}>
-          {visible.map(a => {
-            const meta = PRIORITY_META[a.priority] || PRIORITY_META.info
-            const Icon = meta.icon
-            return (
-              <div key={a.id} style={{background:'var(--bg-elevated)', border:`1px solid var(--border)`, borderLeft:`3px solid ${meta.color}`, borderRadius:'var(--radius)', padding:'1rem 1.25rem', display:'flex', alignItems:'flex-start', gap:'1rem', cursor:'pointer'}}
-                onClick={() => navigate(a.link)}>
-                <Icon size={20} style={{color:meta.color, flexShrink:0, marginTop:'0.1rem'}}/>
-                <div style={{flex:1}}>
-                  <div style={{display:'flex', alignItems:'center', gap:'0.5rem', marginBottom:'0.2rem'}}>
-                    <span style={{fontSize:'0.65rem', textTransform:'uppercase', letterSpacing:'0.08em', fontWeight:700, color:meta.color, fontFamily:'var(--font-display)'}}>{a.category}</span>
-                    <span style={{fontSize:'0.65rem', background:meta.bg, color:meta.color, borderRadius:'3px', padding:'0.05rem 0.35rem', fontWeight:700, textTransform:'uppercase'}}>{meta.label}</span>
-                  </div>
-                  <div style={{fontWeight:600, fontSize:'0.9rem', marginBottom:'0.25rem'}}>{a.title}</div>
-                  <div style={{fontSize:'0.8rem', color:'var(--text-secondary)'}}>{a.body}</div>
+        <div style={{display:'flex', flexDirection:'column', gap:'0.6rem'}}>
+          {filtered.map(a => (
+            <div key={a.id} onClick={a.action}
+              style={{display:'flex', gap:'1rem', alignItems:'flex-start',
+                background:'var(--bg-elevated)', border:`1px solid var(--border)`,
+                borderLeft:`3px solid ${sevClr[a.severity]}`,
+                borderRadius:'var(--radius)', padding:'0.9rem 1rem',
+                cursor:'pointer', transition:'background 0.15s'}}
+              onMouseEnter={e => e.currentTarget.style.background='var(--bg-hover)'}
+              onMouseLeave={e => e.currentTarget.style.background='var(--bg-elevated)'}>
+              <SevIcon sev={a.severity}/>
+              <div style={{flex:1}}>
+                <div style={{display:'flex', gap:'0.5rem', alignItems:'center', marginBottom:'0.25rem'}}>
+                  <span style={{fontSize:'0.65rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em',
+                    padding:'0.1rem 0.4rem', borderRadius:'3px', background:sevBg[a.severity], color:sevClr[a.severity]}}>
+                    {a.category}
+                  </span>
+                  <span style={{fontSize:'0.9rem', fontWeight:600, color:'var(--text-primary)'}}>{a.title}</span>
                 </div>
-                <button onClick={e => { e.stopPropagation(); dismiss(a.id) }}
-                  style={{background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)', fontSize:'1.1rem', lineHeight:1, padding:'0.2rem', flexShrink:0}}>×</button>
+                <div style={{fontSize:'0.8rem', color:'var(--text-secondary)'}}>{a.detail}</div>
               </div>
-            )
-          })}
+              <div style={{fontSize:'0.7rem', color:'var(--text-muted)', whiteSpace:'nowrap', marginTop:'0.15rem'}}>→ Action</div>
+            </div>
+          ))}
         </div>
       )}
     </div>
